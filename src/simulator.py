@@ -12,6 +12,7 @@ def simulate(
         vol_sensitivity = 0.25,
         informed_prob = 0.2, 
         information_strength = 1.0, 
+        transaction_cost = 0.001,
         seed = None,
 ):
     rng = np.random.default_rng(seed)
@@ -63,12 +64,14 @@ def simulate(
         if trader_value >= ask:
             # Trader buys from us
             cash += ask
+            cash -= transaction_cost
             inventory -= 1
             trade = "BUY"
 
         elif trader_value <= bid:
             # Trader sells to us
             cash -= bid
+            cash -= transaction_cost
             inventory += 1
             trade = "SELL"
 
@@ -115,11 +118,12 @@ def run_trials(
     low_sigma = 0.05,
     high_sigma = 0.20, 
     trader_sigma = 0.10,
-    half_spread = 0.05,
+    half_spread = 0.10,
     inventory_skew = 0.02,
     vol_sensitivity = 0.25,
-    informed_prob = 0.20, 
+    informed_prob = 0.25, 
     information_strength = 1.0,
+    transaction_cost = 0.001,
 ):
     final_pnls = []
     final_inventories = []
@@ -147,6 +151,7 @@ def run_trials(
             vol_sensitivity = vol_sensitivity,
             informed_prob = informed_prob, 
             information_strength = information_strength, 
+            transaction_cost = transaction_cost,
             seed = seed,
         )
 
@@ -210,62 +215,38 @@ def run_trials(
         uninformed_markouts,
     )
 
-informed_probs = [0.0, 0.1, 0.25, 0.5, 0.75]
-
-half_spreads = [
-    0.03,
-    0.05,
-    0.075,
-    0.10,
-    0.125,
-    0.15,
-    0.20,
+transaction_costs = [
+    0.0,
+    0.001,
+    0.0025,
+    0.005,
+    0.01,
 ]
 
-for p in informed_probs:
-
-    best_spread = None
-    best_pnl = -np.inf
-
-    print(f"\n===== Informed probability: {p} =====")
-
-    for spread in half_spreads:
-
-        (
-            pnls,
-            inventories,
-            trade_counts,
-            max_inventories,
-            low_pnls,
-            high_pnls,
-            low_trades,
-            high_trades,
-            informed_markouts,
-            uninformed_markouts,
-        ) = run_trials(
-            num_trials=1000,
-            half_spread=spread,
-            inventory_skew=0.02,
-            vol_sensitivity=0.25,
-            informed_prob=p,
-            information_strength=1.0,
-        )
-
-        avg_pnl = np.mean(pnls)
-        pnl_std = np.std(pnls)
-        avg_trades = np.mean(trade_counts)
-
-        print(f"\nHalf-spread: {spread}")
-        print("Average P&L:", avg_pnl)
-        print("P&L std:", pnl_std)
-        print("Average trades:", avg_trades)
-        print("P&L / risk:", avg_pnl / pnl_std)
-
-        if avg_pnl > best_pnl:
-            best_pnl = avg_pnl
-            best_spread = spread
-
-    print(
-        f"\nBest spread for informed probability {p}: "
-        f"{best_spread} with average P&L {best_pnl}"
+for cost in transaction_costs:
+    (
+        pnls,
+        inventories,
+        trade_counts,
+        max_inventories,
+        low_pnls,
+        high_pnls,
+        low_trades,
+        high_trades,
+        informed_markouts,
+        uninformed_markouts,
+    ) = run_trials(
+        num_trials=1000,
+        half_spread=0.10,
+        inventory_skew=0.02,
+        vol_sensitivity=0.25,
+        informed_prob=0.25,
+        information_strength=1.0,
+        transaction_cost=cost,
     )
+
+    print(f"\nTransaction cost: {cost}")
+    print("Average P&L:", np.mean(pnls))
+    print("P&L std:", np.std(pnls))
+    print("Average trades:", np.mean(trade_counts))
+    print("P&L / risk:", np.mean(pnls) / np.std(pnls))
