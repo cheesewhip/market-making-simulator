@@ -10,6 +10,8 @@ def simulate(
         trader_sigma = 0.10,
         inventory_skew = 0.02,
         vol_sensitivity = 0.25,
+        informed_prob = 0.2, 
+        information_strength = 1.0, 
         seed = None,
 ):
     rng = np.random.default_rng(seed)
@@ -21,56 +23,87 @@ def simulate(
     history = []
 
     for t in range(T):
-        # 1. Move fair price
+        # 1. Determine current volatility regime
         if t < T // 2:
             current_sigma = low_sigma
         else:
             current_sigma = high_sigma
 
-        price += rng.normal(0, current_sigma)
-        
-        # 2. Set our quotes
+        # 2. Market maker posts quotes using CURRENT information
         reservation_price = price - inventory_skew * inventory
 
-        current_half_spread = half_spread + vol_sensitivity * (current_sigma - low_sigma)
+        current_half_spread = (
+            half_spread
+            + vol_sensitivity * (current_sigma - low_sigma)
+        )
+
         bid = reservation_price - current_half_spread
         ask = reservation_price + current_half_spread
 
-        # 3. Generate the trader's private valuation
-        trader_value = price + rng.normal(0, trader_sigma)
+        # 3. Generate the NEXT price movement
+        next_price_change = rng.normal(0, current_sigma)
 
-        # 4. Execute a trade only if our quote is attractive
+        # 4. Determine whether trader is informed
+        is_informed = rng.random() < informed_prob
+
+        trader_noise = rng.normal(0, trader_sigma)
+
+        if is_informed:
+            trader_value = (
+                price
+                + information_strength * next_price_change
+                + trader_noise
+            )
+        else:
+            trader_value = price + trader_noise
+
+        # 5. Trader decides whether to trade
         trade = "NONE"
 
-        if trader_value >= ask: 
-            # Trader values the stock above our ask, so they buy from us
+        if trader_value >= ask:
+            # Trader buys from us
             cash += ask
             inventory -= 1
             trade = "BUY"
 
-        elif trader_value <= bid: 
-            # Trader values the stock below our bid, so they sell to us
+        elif trader_value <= bid:
+            # Trader sells to us
             cash -= bid
             inventory += 1
             trade = "SELL"
 
-        # 5. Mark our position to market
+        # 6. Now the price actually moves
+        price += next_price_change
+
+        if trade == "BUY":
+            markout = ask - price
+
+        elif trade == "SELL":
+            markout = price - bid
+
+        else:
+            markout = None
+
+        # 7. Mark inventory to market
         pnl = cash + inventory * price
 
-        # 6. Save this timestep
+        # 8. Record results
         history.append({
-            "time": t, 
-            "price": price, 
-            "bid": bid, 
+            "time": t,
+            "price": price,
+            "bid": bid,
             "ask": ask,
-            "trader_value": trader_value, 
+            "trader_value": trader_value,
             "trade": trade,
-            "cash": cash, 
-            "inventory": inventory, 
+            "cash": cash,
+            "inventory": inventory,
             "pnl": pnl,
             "reservation_price": reservation_price,
-            "half_spread": current_half_spread,
             "sigma": current_sigma,
+            "half_spread": current_half_spread,
+            "is_informed": is_informed,
+            "next_price_change": next_price_change,
+            "markout": markout,
         })
 
     return history
@@ -85,6 +118,8 @@ def run_trials(
     half_spread = 0.05,
     inventory_skew = 0.02,
     vol_sensitivity = 0.25,
+    informed_prob = 0.20, 
+    information_strength = 1.0,
 ):
     final_pnls = []
     final_inventories = []
@@ -97,6 +132,9 @@ def run_trials(
     low_regime_trades = []
     high_regime_trades = []
 
+    informed_markouts = []
+    uninformed_markouts = []
+
     for seed in range(num_trials):
         history = simulate(
             T = T,
@@ -107,6 +145,8 @@ def run_trials(
             half_spread = half_spread,
             inventory_skew = inventory_skew,
             vol_sensitivity = vol_sensitivity,
+            informed_prob = informed_prob, 
+            information_strength = information_strength, 
             seed = seed,
         )
 
@@ -148,36 +188,84 @@ def run_trials(
         final_pnls.append(final["pnl"])
         final_inventories.append(final["inventory"])
 
-    return (final_pnls, final_inventories, trade_counts, max_abs_inventories, 
-            low_regime_pnls,high_regime_pnls, low_regime_trades, high_regime_trades)
+        for step in history:
+            if step["markout"] is None:
+                continue
 
-# Run Monte Carlo trials
-vol_sensitivities = [0.0, 0.1, 0.25, 0.5, 0.75, 1.0]
+            if step["is_informed"]:
+                informed_markouts.append(step["markout"])
+            else:
+                uninformed_markouts.append(step["markout"])
 
-for beta in vol_sensitivities:
-    (
-        pnls,
-        inventories,
-        trade_counts,
-        max_inventories,
-        low_pnls,
-        high_pnls,
-        low_trades,
-        high_trades,
-    ) = run_trials(
-        num_trials=1000,
-        inventory_skew=0.02,
-        vol_sensitivity=beta,
+    return (
+        final_pnls, 
+        final_inventories, 
+        trade_counts, 
+        max_abs_inventories, 
+        low_regime_pnls,
+        high_regime_pnls, 
+        low_regime_trades, 
+        high_regime_trades, 
+        informed_markouts,
+        uninformed_markouts,
     )
 
-    print(f"\nVol sensitivity: {beta}")
-    print("Total average P&L:", np.mean(pnls))
-    print("Low-vol average P&L:", np.mean(low_pnls))
-    print("High-vol average P&L:", np.mean(high_pnls))
+informed_probs = [0.0, 0.1, 0.25, 0.5, 0.75]
 
-    print("Low-vol trades:", np.mean(low_trades))
-    print("High-vol trades:", np.mean(high_trades))
+half_spreads = [
+    0.03,
+    0.05,
+    0.075,
+    0.10,
+    0.125,
+    0.15,
+    0.20,
+]
 
-    print("P&L std:", np.std(pnls))
-    print("Average max |inventory|:", np.mean(max_inventories))
-    print("P&L / risk:", np.mean(pnls) / np.std(pnls))
+for p in informed_probs:
+
+    best_spread = None
+    best_pnl = -np.inf
+
+    print(f"\n===== Informed probability: {p} =====")
+
+    for spread in half_spreads:
+
+        (
+            pnls,
+            inventories,
+            trade_counts,
+            max_inventories,
+            low_pnls,
+            high_pnls,
+            low_trades,
+            high_trades,
+            informed_markouts,
+            uninformed_markouts,
+        ) = run_trials(
+            num_trials=1000,
+            half_spread=spread,
+            inventory_skew=0.02,
+            vol_sensitivity=0.25,
+            informed_prob=p,
+            information_strength=1.0,
+        )
+
+        avg_pnl = np.mean(pnls)
+        pnl_std = np.std(pnls)
+        avg_trades = np.mean(trade_counts)
+
+        print(f"\nHalf-spread: {spread}")
+        print("Average P&L:", avg_pnl)
+        print("P&L std:", pnl_std)
+        print("Average trades:", avg_trades)
+        print("P&L / risk:", avg_pnl / pnl_std)
+
+        if avg_pnl > best_pnl:
+            best_pnl = avg_pnl
+            best_spread = spread
+
+    print(
+        f"\nBest spread for informed probability {p}: "
+        f"{best_spread} with average P&L {best_pnl}"
+    )
