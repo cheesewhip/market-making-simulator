@@ -66,7 +66,6 @@ A positive inventory shifts both quotes downward, encouraging traders to buy inv
 ### Volatility-Sensitive Spreads
 
 The half-spread is adjusted according to market volatility:
-
 $$
 \delta_t
 =
@@ -95,7 +94,6 @@ This allows the market maker to demand greater compensation for trading during v
 The simulator also includes informed traders.
 
 Uninformed traders have valuations of the form
-
 $$
 V_t=S_t+\epsilon_t.
 $$
