@@ -1,6 +1,7 @@
-import pytest 
+import pytest
 
 from src.simulator import simulate
+
 
 def test_same_seed_produces_same_history():
     history1 = simulate(T=100, seed=42)

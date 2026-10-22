@@ -2,6 +2,7 @@ import pytest
 
 from src.strategies import compute_quotes
 
+
 def test_zero_inventory_quotes_are_symmetric():
     reservation_price, current_half_spread, bid, ask = compute_quotes(
         price=100.0,

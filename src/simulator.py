@@ -1,15 +1,16 @@
 import numpy as np
 
-from src.strategies import compute_quotes
 from src.metrics import (
+    collect_markouts,
     count_trades,
-    max_abs_inventory,
-    final_pnl,
     final_inventory,
+    final_pnl,
+    max_abs_inventory,
     regime_pnls,
     regime_trade_counts,
-    collect_markouts,
 )
+from src.strategies import compute_quotes
+
 
 def simulate(
         T = 1000,
