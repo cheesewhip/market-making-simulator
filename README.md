@@ -181,9 +181,7 @@ The final strategy also executed roughly half as many trades, demonstrating that
 For Monte Carlo comparisons, the project uses
 
 $$
-\text{P\&L-to-risk}
-=
-\frac{E[\text{terminal P\&L}]}
+\text{P\&L-to-risk} = \frac{E[\text{terminal P\&L}]}
 {\operatorname{Std}(\text{terminal P\&L})}.
 $$
 
@@ -198,11 +196,7 @@ A configurable per-trade transaction cost is deducted from cash after every exec
 As expected,
 
 $$
-E[\text{net P\&L}]
-\approx
-E[\text{gross P\&L}]
--
-cE[N_{\text{trades}}],
+E[\text{net P\&L}] \approx E[\text{gross P\&L}] - cE[N_{\text{trades}}],
 $$
 
 where $c$ is the cost per trade.
