@@ -32,18 +32,18 @@ The simulator supports:
 
 The asset's fair price evolves according to
 
-\[
+$$
 S_{t+1}=S_t+\sigma_t Z_t,
 \qquad
 Z_t\sim N(0,1),
-\]
+$$
 
-where \(\sigma_t\) depends on the current volatility regime.
+where $\sigma_t$ depends on the current volatility regime.
 
 The default simulation uses:
 
-- Low volatility: \(\sigma_{\text{low}}=0.05\)
-- High volatility: \(\sigma_{\text{high}}=0.20\)
+- Low volatility: $\sigma_{\text{low}}=0.05$
+- High volatility: $\sigma_{\text{high}}=0.20$
 
 The first half of the simulation uses the low-volatility regime and the second half uses the high-volatility regime.
 
@@ -51,15 +51,15 @@ The first half of the simulation uses the low-volatility regime and the second h
 
 The market maker adjusts its reservation price based on inventory:
 
-\[
+$$
 r_t=S_t-\alpha q_t,
-\]
+$$
 
 where:
 
-- \(S_t\) is the current fair price
-- \(q_t\) is the market maker's inventory
-- \(\alpha\) controls inventory sensitivity
+- $S_t$ is the current fair price
+- $q_t$ is the market maker's inventory
+- $\alpha$ controls inventory sensitivity
 
 A positive inventory shifts both quotes downward, encouraging traders to buy inventory from the market maker. A negative inventory shifts quotes upward.
 
@@ -67,26 +67,26 @@ A positive inventory shifts both quotes downward, encouraging traders to buy inv
 
 The half-spread is adjusted according to market volatility:
 
-\[
+$$
 \delta_t
 =
 \delta_0+\beta(\sigma_t-\sigma_{\text{low}}),
-\]
+$$
 
 where:
 
-- \(\delta_0\) is the base half-spread
-- \(\beta\) controls volatility sensitivity
+- $\delta_0$ is the base half-spread
+- $\beta$ controls volatility sensitivity
 
 The resulting quotes are
 
-\[
+$$
 Bid_t=r_t-\delta_t,
-\]
+$$
 
-\[
+$$
 Ask_t=r_t+\delta_t.
-\]
+$$
 
 This allows the market maker to demand greater compensation for trading during volatile market conditions.
 
@@ -96,19 +96,19 @@ The simulator also includes informed traders.
 
 Uninformed traders have valuations of the form
 
-\[
+$$
 V_t=S_t+\epsilon_t.
-\]
+$$
 
 Informed traders receive information about the upcoming price movement:
 
-\[
+$$
 V_t
 =
 S_t+\lambda\Delta S_{t+1}+\epsilon_t,
-\]
+$$
 
-where \(\lambda\) determines the strength of their information.
+where $\lambda$ determines the strength of their information.
 
 This creates adverse selection: informed traders are more likely to trade when the market maker's quote is about to become stale.
 
@@ -120,33 +120,35 @@ All reported results use Monte Carlo simulation across 1,000 independent trials.
 
 ### 1. Inventory Risk
 
-The first experiment varies the inventory-skew parameter \(\alpha\).
+The first experiment varies the inventory-skew parameter $\alpha$.
 
 Without inventory control, the market maker can accumulate large directional positions. Introducing inventory-aware quoting sharply reduces inventory exposure and P&L variability.
 
-![Inventory control](results/figures/inventory_skew.png)
+<p align="center">
+  <img src="results/figures/inventory_skew.png" width="700">
+</p>
 
 Moderate inventory sensitivity substantially improves risk-adjusted performance, while increasingly aggressive inventory control eventually produces diminishing returns.
 
 ### 2. Volatility-Sensitive Quoting
 
-The second experiment varies the volatility-sensitivity parameter \(\beta\).
+The second experiment varies the volatility-sensitivity parameter $\beta$.
 
-![Volatility-sensitive quoting](results/figures/volatility_sensitivity.png)
+<p align="center">
+  <img src="results/figures/volatility_sensitivity.png" width="700">
+</p>
 
 Moderately widening spreads during high-volatility periods improves high-volatility P&L. Excessive spread widening reduces execution volume enough to hurt profitability.
 
-Among the tested parameters, performance peaked near
-
-\[
-\beta=0.25.
-\]
+Among the tested parameters, performance peaked near $\beta=0.25.$
 
 ### 3. Adverse Selection
 
 The third experiment increases the fraction of informed traders.
 
-![Adverse selection](results/figures/adverse_selection.png)
+<p align="center">
+  <img src="results/figures/adverse_selection.png" width="700">
+</p>
 
 Market-maker profitability falls steadily as order flow becomes more informed and turns negative when approximately half of arriving traders are informed.
 
@@ -165,7 +167,9 @@ Four strategies were evaluated under the same simulated market conditions:
 | Inventory + volatility | 11.66 | 7.50 | 1.55 | 559.8 | 4.97 |
 | Fully risk-aware | **16.21** | **7.00** | **2.32** | **312.3** | **4.33** |
 
-![Final strategy comparison](results/figures/final_strategy_comparison.png)
+<p align="center">
+  <img src="results/figures/final_strategy_comparison.png" width="700">
+</p>
 
 Relative to the naive baseline, the fully risk-aware strategy achieved approximately:
 
@@ -180,12 +184,12 @@ The final strategy also executed roughly half as many trades, demonstrating that
 
 For Monte Carlo comparisons, the project uses
 
-\[
+$$
 \text{P\&L-to-risk}
 =
 \frac{E[\text{terminal P\&L}]}
 {\operatorname{Std}(\text{terminal P\&L})}.
-\]
+$$
 
 This is used as a simple signal-to-risk measure across simulated outcomes.
 
@@ -197,15 +201,15 @@ A configurable per-trade transaction cost is deducted from cash after every exec
 
 As expected,
 
-\[
+$$
 E[\text{net P\&L}]
 \approx
 E[\text{gross P\&L}]
 -
 cE[N_{\text{trades}}],
-\]
+$$
 
-where \(c\) is the cost per trade.
+where $c$ is the cost per trade.
 
 This demonstrates how high-turnover strategies can lose a meaningful portion of their apparent edge once trading frictions are included.
 
@@ -218,20 +222,16 @@ market-making-simulator/
 │   ├── simulator.py
 │   ├── strategies.py
 │   └── metrics.py
-│
 ├── experiments/
 │   ├── inventory_analysis.py
 │   ├── volatility_analysis.py
 │   ├── adverse_selection_analysis.py
 │   └── final_comparison.py
-│
 ├── tests/
 │   ├── test_simulator.py
 │   └── test_strategies.py
-│
 ├── results/
 │   └── figures/
-│
 ├── README.md
 ├── requirements.txt
 └── .gitignore
