@@ -1,5 +1,15 @@
 import numpy as np
-import matplotlib.pyplot as plt
+
+from src.strategies import compute_quotes
+from src.metrics import (
+    count_trades,
+    max_abs_inventory,
+    final_pnl,
+    final_inventory,
+    regime_pnls,
+    regime_trade_counts,
+    collect_markouts,
+)
 
 def simulate(
         T = 1000,
@@ -10,9 +20,9 @@ def simulate(
         trader_sigma = 0.10,
         inventory_skew = 0.02,
         vol_sensitivity = 0.25,
-        informed_prob = 0.2, 
+        informed_prob = 0.25, 
         information_strength = 1.0, 
-        transaction_cost = 0.001,
+        transaction_cost = 0.0025,
         seed = None,
 ):
     rng = np.random.default_rng(seed)
@@ -31,15 +41,19 @@ def simulate(
             current_sigma = high_sigma
 
         # 2. Market maker posts quotes using CURRENT information
-        reservation_price = price - inventory_skew * inventory
-
-        current_half_spread = (
-            half_spread
-            + vol_sensitivity * (current_sigma - low_sigma)
+        (   reservation_price,
+            current_half_spread,
+            bid,
+            ask,
+        ) = compute_quotes(
+            price = price,
+            inventory = inventory,
+            current_sigma = current_sigma,
+            low_sigma = low_sigma,
+            half_spread = half_spread,
+            inventory_skew = inventory_skew,
+            vol_sensitivity = vol_sensitivity,
         )
-
-        bid = reservation_price - current_half_spread
-        ask = reservation_price + current_half_spread
 
         # 3. Generate the NEXT price movement
         next_price_change = rng.normal(0, current_sigma)
@@ -112,18 +126,18 @@ def simulate(
     return history
 
 def run_trials(
-    num_trials = 1000,
-    T = 1000,
-    initial_price = 100.0,
-    low_sigma = 0.05,
-    high_sigma = 0.20, 
-    trader_sigma = 0.10,
-    half_spread = 0.10,
-    inventory_skew = 0.02,
-    vol_sensitivity = 0.25,
-    informed_prob = 0.25, 
-    information_strength = 1.0,
-    transaction_cost = 0.001,
+    num_trials=1000,
+    T=1000,
+    initial_price=100.0,
+    low_sigma=0.05,
+    high_sigma=0.20,
+    trader_sigma=0.10,
+    half_spread=0.10,
+    inventory_skew=0.02,
+    vol_sensitivity=0.25,
+    informed_prob=0.25,
+    information_strength=1.0,
+    transaction_cost=0.0025,
 ):
     final_pnls = []
     final_inventories = []
@@ -141,89 +155,81 @@ def run_trials(
 
     for seed in range(num_trials):
         history = simulate(
-            T = T,
-            initial_price = initial_price,
-            low_sigma = low_sigma, 
-            high_sigma = high_sigma,
-            trader_sigma = trader_sigma,
-            half_spread = half_spread,
-            inventory_skew = inventory_skew,
-            vol_sensitivity = vol_sensitivity,
-            informed_prob = informed_prob, 
-            information_strength = information_strength, 
-            transaction_cost = transaction_cost,
-            seed = seed,
+            T=T,
+            initial_price=initial_price,
+            low_sigma=low_sigma,
+            high_sigma=high_sigma,
+            trader_sigma=trader_sigma,
+            half_spread=half_spread,
+            inventory_skew=inventory_skew,
+            vol_sensitivity=vol_sensitivity,
+            informed_prob=informed_prob,
+            information_strength=information_strength,
+            transaction_cost=transaction_cost,
+            seed=seed,
         )
 
-        midpoint = T // 2
+        # Overall metrics
+        final_pnls.append(final_pnl(history))
+        final_inventories.append(final_inventory(history))
+        trade_counts.append(count_trades(history))
+        max_abs_inventories.append(max_abs_inventory(history))
 
-        low_history = history[:midpoint]
-        high_history = history[midpoint:]
-
-        num_trades = sum(
-            1 for step in history
-            if step["trade"] != "NONE"
-        )
-
-        trade_counts.append(num_trades)
-        
-        max_abs_inventory = max(
-        abs(step["inventory"]) for step in history
-        )
-
-        max_abs_inventories.append(max_abs_inventory)
-
-        final = history[-1]
-
-        low_end_pnl = low_history[-1]["pnl"]
-        final_pnl = high_history[-1]["pnl"]
-
-        low_pnl = low_end_pnl
-        high_pnl = final_pnl - low_end_pnl
-
+        # Volatility-regime metrics
+        low_pnl, high_pnl = regime_pnls(history)
         low_regime_pnls.append(low_pnl)
         high_regime_pnls.append(high_pnl)
 
-        low_trades = sum(1 for step in low_history if step["trade"] != "NONE")
-        high_trades = sum(1 for step in high_history if step["trade"] != "NONE")
-
+        low_trades, high_trades = regime_trade_counts(history)
         low_regime_trades.append(low_trades)
         high_regime_trades.append(high_trades)
 
-        final_pnls.append(final["pnl"])
-        final_inventories.append(final["inventory"])
-
-        for step in history:
-            if step["markout"] is None:
-                continue
-
-            if step["is_informed"]:
-                informed_markouts.append(step["markout"])
-            else:
-                uninformed_markouts.append(step["markout"])
+        # Adverse-selection metrics
+        informed, uninformed = collect_markouts(history)
+        informed_markouts.extend(informed)
+        uninformed_markouts.extend(uninformed)
 
     return (
-        final_pnls, 
-        final_inventories, 
-        trade_counts, 
-        max_abs_inventories, 
+        final_pnls,
+        final_inventories,
+        trade_counts,
+        max_abs_inventories,
         low_regime_pnls,
-        high_regime_pnls, 
-        low_regime_trades, 
-        high_regime_trades, 
+        high_regime_pnls,
+        low_regime_trades,
+        high_regime_trades,
         informed_markouts,
         uninformed_markouts,
     )
 
-transaction_costs = [
-    0.0,
-    0.001,
-    0.0025,
-    0.005,
-    0.01,
+strategies = [
+    {
+        "name": "Naive baseline",
+        "inventory_skew": 0.0,
+        "vol_sensitivity": 0.0,
+        "half_spread": 0.05,
+    },
+    {
+        "name": "Inventory-aware",
+        "inventory_skew": 0.02,
+        "vol_sensitivity": 0.0,
+        "half_spread": 0.05,
+    },
+    {
+        "name": "Inventory + volatility",
+        "inventory_skew": 0.02,
+        "vol_sensitivity": 0.25,
+        "half_spread": 0.05,
+    },
+    {
+        "name": "Fully risk-aware",
+        "inventory_skew": 0.02,
+        "vol_sensitivity": 0.25,
+        "half_spread": 0.10,
+    },
 ]
 
-for cost in transaction_costs:
+for strategy in strategies:
     (
         pnls,
         inventories,
@@ -237,16 +243,32 @@ for cost in transaction_costs:
         uninformed_markouts,
     ) = run_trials(
         num_trials=1000,
-        half_spread=0.10,
-        inventory_skew=0.02,
-        vol_sensitivity=0.25,
+        low_sigma=0.05,
+        high_sigma=0.20,
+        trader_sigma=0.10,
+        inventory_skew=strategy["inventory_skew"],
+        vol_sensitivity=strategy["vol_sensitivity"],
+        half_spread=strategy["half_spread"],
         informed_prob=0.25,
         information_strength=1.0,
-        transaction_cost=cost,
+        transaction_cost=0.0025,
     )
 
-    print(f"\nTransaction cost: {cost}")
+    print(f"\n===== {strategy['name']} =====")
     print("Average P&L:", np.mean(pnls))
     print("P&L std:", np.std(pnls))
-    print("Average trades:", np.mean(trade_counts))
     print("P&L / risk:", np.mean(pnls) / np.std(pnls))
+    print("Average trades:", np.mean(trade_counts))
+    print("Average max |inventory|:", np.mean(max_inventories))
+
+    if informed_markouts:
+        print(
+            "Average informed markout:",
+            np.mean(informed_markouts)
+        )
+
+    if uninformed_markouts:
+        print(
+            "Average uninformed markout:",
+            np.mean(uninformed_markouts)
+        )
