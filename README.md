@@ -35,7 +35,7 @@ The asset's fair price evolves according to
 $$
 S_{t+1}=S_t+\sigma_t Z_t,
 \qquad
-Z_t\sim N(0,1),
+Z_t\sim N(0,1)
 $$
 
 where $\sigma_t$ depends on the current volatility regime.
@@ -68,7 +68,7 @@ A positive inventory shifts both quotes downward, encouraging traders to buy inv
 The half-spread is adjusted according to market volatility:
 
 $$
-\delta_t = \delta_0+\beta(\sigma_t-\sigma_{\text{low}}),
+\delta_t = \delta_0+\beta(\sigma_t-\sigma_{\text{low}})
 $$
 
 where:
@@ -101,7 +101,7 @@ $$
 Informed traders receive information about the upcoming price movement:
 
 $$
-V_t = S_t+\lambda\Delta S_{t+1}+\epsilon_t,
+V_t = S_t+\lambda\Delta S_{t+1}+\epsilon_t
 $$
 
 where $\lambda$ determines the strength of their information.
@@ -181,8 +181,7 @@ The final strategy also executed roughly half as many trades, demonstrating that
 For Monte Carlo comparisons, the project uses
 
 $$
-\text{P\&L-to-risk} = \frac{E[\text{terminal P\&L}]}
-{\operatorname{Std}(\text{terminal P\&L})}.
+\text{P\&L-to-risk} = \frac{\mathbb{E}[\text{terminal P\&L}]}{\mathrm{Std}(\text{terminal P\&L})}.
 $$
 
 This is used as a simple signal-to-risk measure across simulated outcomes.
@@ -196,7 +195,7 @@ A configurable per-trade transaction cost is deducted from cash after every exec
 As expected,
 
 $$
-E[\text{net P\&L}] \approx E[\text{gross P\&L}] - cE[N_{\text{trades}}],
+\mathbb{E}[\text{net P\&L}] \approx \mathbb{E}[\text{gross P\&L}] - c\,\mathbb{E}[N_{\text{trades}}]
 $$
 
 where $c$ is the cost per trade.
