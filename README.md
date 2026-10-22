@@ -68,9 +68,7 @@ A positive inventory shifts both quotes downward, encouraging traders to buy inv
 The half-spread is adjusted according to market volatility:
 
 $$
-\delta_t
-=
-\delta_0+\beta(\sigma_t-\sigma_{\text{low}}),
+\delta_t = \delta_0+\beta(\sigma_t-\sigma_{\text{low}}),
 $$
 
 where:
@@ -103,9 +101,7 @@ $$
 Informed traders receive information about the upcoming price movement:
 
 $$
-V_t
-=
-S_t+\lambda\Delta S_{t+1}+\epsilon_t,
+V_t = S_t+\lambda\Delta S_{t+1}+\epsilon_t,
 $$
 
 where $\lambda$ determines the strength of their information.
